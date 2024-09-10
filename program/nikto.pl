@@ -1,7 +1,9 @@
 #!/usr/bin/env perl
+# NOTE: 基本的なサブルーチンは/program/plugins/nikto_core.pluginに定義されている。
 use strict;
 ###############################################################################
 # Modules are now loaded in a function so errors can be trapped and evaluated
+# perlのdefault moduleをimportする
 load_modules();
 ###############################################################################
 #                               Nikto                                         #
@@ -34,6 +36,9 @@ load_modules();
 #######################################################################
 
 # global var/definitions
+# %はハッシュ変数(多分辞書型らしい)
+# $は変数
+# @は配列
 use vars qw/$TEMPLATES %CLI %VARIABLES %TESTS/;
 use vars qw/%NIKTO %CONFIGFILE %COUNTERS %db_extensions/;
 use vars qw/@RESULTS @PLUGINS @DBFILE @REPORTS %CONTENTSEARCH/;
@@ -46,9 +51,11 @@ $VARIABLES{'name'}      = "Nikto";
 $VARIABLES{'version'}   = "2.5.0";
 
 # signal trap so we can close down reports properly
+# /program/plugins/nikto_core.pluginで定義したサブルーチンのリファレンスは\&をつけて指定してCtrl C押下時の関数を指定している
 $SIG{'INT'} = \&safe_quit;
 
 config_init();
+# plugin/等のパスを宣言している。
 setup_dirs();
 require "$CONFIGFILE{'PLUGINDIR'}/nikto_core.plugin";
 nprint("T:" . localtime($COUNTERS{'scan_start'}) . ": Starting", "d");
@@ -58,14 +65,21 @@ $VARIABLES{'GMTOFFSET'} = gmt_offset();
 # use LW2;                   ### Change this line to use a different installed version
 
 #set SSL Engine
+# NOTE: ::を使用してLW2パッケージから関数を呼び出している
 LW2::init_ssl_engine($CONFIGFILE{'LW_SSL_ENGINE'});
 
+# NOTE: myはスコープの限定された変数を宣言するのに使われる。
+# NOTE: dieはプログラムの実行を中断し，エラーメッセージを表示するために使われる。
+# NOTE: ブロックスコープが定義されていないのでnikto.pl全体で有効になる。
+# NOTE: splitは文字列を分割して配列にする
 my ($a, $b) = split(/\./, $LW2::VERSION);
 die("- You must use LW2 2.4 or later\n") if ($a != 2 || $b < 4);
 
+# NOTE: あとで読む
 general_config();
+# ./proram/databases/配下のファイルをロードする。いくつかグローバル変数に値が格納されてそうなので注意。
 load_databases();
-load_databases('u');
+load_databases('u'); # NOTE: 気になるuserカスタムスクリプトとか?
 nprint("- $VARIABLES{'name'} v$VARIABLES{'version'}");
 nprint($VARIABLES{'DIV'});
 
@@ -104,9 +118,11 @@ foreach my $mark (@MARKS) {
     }
 
     # Load db_tests
+    # @TESTS(ハッシュ)にリクエストのURLやパスなどの情報を格納する
     set_scan_items();
 
     # Start hook to allow plugins to load databases etc
+    # NOTE: あとで読む
     run_hooks("", "start");
 
     # Skip if we can't resolve the host - we'll error later
@@ -175,10 +191,11 @@ foreach my $mark (@MARKS) {
         $mark->{'save_dir'}    = save_createdir($CLI{'saveresults'}, $mark);
         $mark->{'save_prefix'} = save_getprefix($mark);
     }
-
+    # requestとか送ってそう
     nfetch($mark, "/", "GET", "", "", { noprefetch => 1, nopostfetch => 1 }, "getinfo");
 
 
+    # 出力整形用
     dump_target_info($mark);
     unless ((defined $CLI{'nofof'}) || ($CLI{'plugins'} eq '@@NONE')) { map_codes($mark) }
     run_hooks($mark, "recon");
